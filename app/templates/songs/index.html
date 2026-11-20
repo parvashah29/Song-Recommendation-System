@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Song Recommender{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-results, .recommendations {
+        margin-top: 20px;
+    }
+    .song-card {
+        margin-bottom: 15px;
+        transition: transform 0.2s;
+    }
+    .song-card:hover {
+        transform: translateY(-5px);
+    }
+    .spotify-preview {
+        width: 100%;
+        height: 80px;
+        border: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Search Songs</h5>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search for songs...">
+                    <button class="btn btn-primary" type="button" id="searchButton">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+                <div id="searchResults" class="search-results"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Create Playlist</h5>
+                <form id="createPlaylistForm">
+                    <div class="mb-3">
+                        <label for="playlistName" class="form-label">Playlist Name</label>
+                        <input type="text" class="form-control" id="playlistName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="playlistDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="playlistDescription" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Playlist</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Recommended for You</h5>
+                <div id="recommendations" class="recommendations"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Search functionality
+    $('#searchButton').click(function() {
+        const query = $('#searchInput').val();
+        if (query) {
+            $.get('/search', { q: query }, function(data) {
+                displaySearchResults(data);
+            });
+        }
+    });
+
+    // Create playlist
+    $('#createPlaylistForm').submit(function(e) {
+        e.preventDefault();
+        const name = $('#playlistName').val();
+        const description = $('#playlistDescription').val();
+        
+        $.post('/playlists/create', {
+            name: name,
+            description: description
+        }, function(data) {
+            alert('Playlist created successfully!');
+            $('#playlistName').val('');
+            $('#playlistDescription').val('');
+        });
+    });
+
+    // Load recommendations
+    function loadRecommendations() {
+        $.get('/recommendations', function(data) {
+            displayRecommendations(data);
+        });
+    }
+
+    // Display search results
+    function displaySearchResults(songs) {
+        const container = $('#searchResults');
+        container.empty();
+        
+        songs.forEach(song => {
+            const card = createSongCard(song);
+            container.append(card);
+        });
+    }
+
+    // Display recommendations
+    function displayRecommendations(songs) {
+        const container = $('#recommendations');
+        container.empty();
+        
+        songs.forEach(song => {
+            const card = createSongCard(song);
+            container.append(card);
+        });
+    }
+
+    // Create song card
+    function createSongCard(song) {
+        return `
+            <div class="card song-card">
+                <div class="card-body">
+                    <h5 class="card-title">${song.title}</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">${song.artist}</h6>
+                    <p class="card-text">${song.album}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <iframe class="spotify-preview" 
+                            src="https://open.spotify.com/embed/track/${song.spotify_id}"
+                            allow="encrypted-media">
+                        </iframe>
+                        <button class="btn btn-sm btn-outline-primary add-to-playlist" 
+                            data-song-id="${song.id}">
+                            Add to Playlist
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Load initial recommendations
+    loadRecommendations();
+});
+</script>
+{% endblock %} 

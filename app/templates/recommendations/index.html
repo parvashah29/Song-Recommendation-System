@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Song Recommender{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="jumbotron bg-gradient text-center py-5" style="background: linear-gradient(135deg, #1db954, #1ed760); border-radius: 15px;">
+                <h1 class="display-4 text-white mb-3">
+                    <i class="fas fa-music me-3"></i>Discover Your Next Favorite Song
+                </h1>
+                <p class="lead text-white mb-4">AI-powered music recommendations tailored just for you</p>
+                {% if current_user.is_authenticated %}
+                    <button class="btn btn-light btn-lg" onclick="loadPersonalizedRecommendations()">
+                        <i class="fas fa-magic me-2"></i>Get My Recommendations
+                    </button>
+                {% else %}
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-light btn-lg">
+                        <i class="fas fa-user-plus me-2"></i>Get Started
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if current_user.is_authenticated %}
+    <!-- User Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stats-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-heart fa-2x mb-2"></i>
+                    <h5 class="card-title">Liked Songs</h5>
+                    <h3 id="liked-count">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-play fa-2x mb-2"></i>
+                    <h5 class="card-title">Played Songs</h5>
+                    <h3 id="played-count">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-chart-line fa-2x mb-2"></i>
+                    <h5 class="card-title">Total Interactions</h5>
+                    <h3 id="total-interactions">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stats-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-user fa-2x mb-2"></i>
+                    <h5 class="card-title">User ID</h5>
+                    <h3>{{ current_user.id }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Personalized Recommendations -->
+    {% if current_user.is_authenticated %}
+    <div class="recommendation-section">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="section-title">
+                <i class="fas fa-star me-2"></i>Recommended for You
+            </h2>
+            <button class="btn btn-outline-primary" onclick="loadPersonalizedRecommendations()">
+                <i class="fas fa-refresh me-1"></i>Refresh
+            </button>
+        </div>
+        
+        <div class="loading-spinner" id="personalized-loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Finding your perfect songs...</p>
+        </div>
+        
+        <div class="row" id="personalized-recommendations">
+            <!-- Recommendations will be loaded here -->
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Trending Songs -->
+    <div class="recommendation-section">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="section-title">
+                <i class="fas fa-fire me-2"></i>Trending Now
+            </h2>
+            <button class="btn btn-outline-primary" onclick="loadTrendingSongs()">
+                <i class="fas fa-refresh me-1"></i>Refresh
+            </button>
+        </div>
+        
+        <div class="loading-spinner" id="trending-loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading trending songs...</p>
+        </div>
+        
+        <div class="row" id="trending-songs">
+            <!-- Trending songs will be loaded here -->
+        </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="fas fa-cogs me-2"></i>How It Works</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-brain fa-3x text-primary"></i>
+                            </div>
+                            <h5>AI-Powered Analysis</h5>
+                            <p>Our machine learning algorithms analyze your music preferences and listening patterns to understand your taste.</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-users fa-3x text-primary"></i>
+                            </div>
+                            <h5>Collaborative Filtering</h5>
+                            <p>We find users with similar tastes and recommend songs they love that you haven't discovered yet.</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-music fa-3x text-primary"></i>
+                            </div>
+                            <h5>Content-Based Matching</h5>
+                            <p>We analyze song features like tempo, energy, and mood to find songs similar to your favorites.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Load initial data
+    {% if current_user.is_authenticated %}
+        loadUserStats();
+        loadPersonalizedRecommendations();
+    {% endif %}
+    loadTrendingSongs();
+});
+
+function loadUserStats() {
+    $.ajax({
+        url: '/recommendations/api/stats',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                $('#liked-count').text(response.stats.liked_songs);
+                $('#played-count').text(response.stats.played_songs);
+                $('#total-interactions').text(response.stats.total_interactions);
+            }
+        },
+        error: function() {
+            console.error('Failed to load user stats');
+        }
+    });
+}
+
+function loadPersonalizedRecommendations() {
+    $('#personalized-loading').show();
+    $('#personalized-recommendations').empty();
+    
+    $.ajax({
+        url: '/recommendations/api/personalized',
+        method: 'GET',
+        data: { limit: 8 },
+        success: function(response) {
+            $('#personalized-loading').hide();
+            if (response.success && response.recommendations.length > 0) {
+                displayRecommendations(response.recommendations, '#personalized-recommendations');
+            } else {
+                $('#personalized-recommendations').html(`
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Start liking and playing songs to get personalized recommendations!
+                        </div>
+                    </div>
+                `);
+            }
+        },
+        error: function() {
+            $('#personalized-loading').hide();
+            $('#personalized-recommendations').html(`
+                <div class="col-12">
+                    <div class="alert alert-danger text-center">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to load recommendations. Please try again.
+                    </div>
+                </div>
+            `);
+        }
+    });
+}
+
+function loadTrendingSongs() {
+    $('#trending-loading').show();
+    $('#trending-songs').empty();
+    
+    $.ajax({
+        url: '/recommendations/api/trending',
+        method: 'GET',
+        data: { limit: 8 },
+        success: function(response) {
+            $('#trending-loading').hide();
+            if (response.success && response.trending_songs.length > 0) {
+                displayTrendingSongs(response.trending_songs, '#trending-songs');
+            } else {
+                $('#trending-songs').html(`
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No trending songs available at the moment.
+                        </div>
+                    </div>
+                `);
+            }
+        },
+        error: function() {
+            $('#trending-loading').hide();
+            $('#trending-songs').html(`
+                <div class="col-12">
+                    <div class="alert alert-danger text-center">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to load trending songs. Please try again.
+                    </div>
+                </div>
+            `);
+        }
+    });
+}
+
+function displayRecommendations(recommendations, container) {
+    let html = '';
+    recommendations.forEach(function(song) {
+        html += createSongCard(song, true);
+    });
+    $(container).html(html);
+}
+
+function displayTrendingSongs(songs, container) {
+    let html = '';
+    songs.forEach(function(song) {
+        html += createSongCard(song, false, song.interaction_count);
+    });
+    $(container).html(html);
+}
+
+function createSongCard(song, isRecommendation = false, interactionCount = null) {
+    const scoreText = isRecommendation ? `Score: ${song.score.toFixed(2)}` : '';
+    const trendingBadge = interactionCount ? `<span class="trending-badge">${interactionCount} plays</span>` : '';
+    
+    return `
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <div class="card song-card h-100">
+                <div class="position-relative">
+                    <img src="https://via.placeholder.com/300x300/1db954/ffffff?text=${encodeURIComponent(song.title.substring(0, 1))}" 
+                         class="song-artwork" alt="${song.title}">
+                    <button class="play-button" onclick="playSong('${song.spotify_id}')">
+                        <i class="fas fa-play"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title text-truncate" title="${song.title}">${song.title}</h6>
+                    <p class="card-text text-muted small">${song.artist}</p>
+                    <p class="card-text text-muted small">${song.album}</p>
+                    ${scoreText ? `<small class="text-primary">${scoreText}</small>` : ''}
+                    ${trendingBadge}
+                    <div class="interaction-buttons">
+                        <button class="btn btn-sm btn-outline-success interaction-btn" 
+                                onclick="recordInteraction(${song.song_id}, 'like')">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary interaction-btn" 
+                                onclick="recordInteraction(${song.song_id}, 'play')">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary interaction-btn" 
+                                onclick="recordInteraction(${song.song_id}, 'skip')">
+                            <i class="fas fa-forward"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function recordInteraction(songId, interactionType) {
+    $.ajax({
+        url: '/recommendations/api/interact',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            song_id: songId,
+            interaction_type: interactionType,
+            context: 'recommendation'
+        }),
+        success: function(response) {
+            if (response.success) {
+                // Show feedback
+                const button = event.target.closest('button');
+                const originalClass = button.className;
+                button.className = 'btn btn-sm btn-success interaction-btn';
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                
+                setTimeout(function() {
+                    button.className = originalClass;
+                    button.innerHTML = button.innerHTML.replace('fa-check', interactionType === 'like' ? 'fa-heart' : interactionType === 'play' ? 'fa-play' : 'fa-forward');
+                }, 1000);
+                
+                // Update stats
+                loadUserStats();
+            }
+        },
+        error: function() {
+            console.error('Failed to record interaction');
+        }
+    });
+}
+
+function playSong(spotifyId) {
+    // This would integrate with Spotify Web Playback SDK
+    console.log('Playing song:', spotifyId);
+    // For now, just show an alert
+    alert('Song playback would start here. Spotify integration needed.');
+}
+</script>
+{% endblock %}

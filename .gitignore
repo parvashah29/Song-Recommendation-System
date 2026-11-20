@@ -1,0 +1,29 @@
+
+# ---- standard ignores ----
+.DS_Store
+# secrets (keep locally, never commit)
+.env
+.env.*
+!.env.example
+# python
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+# node
+node_modules/
+dist/
+build/
+# editors / logs
+.idea/
+.vscode/
+*.log
+# local state
+instance/
+flask_session/
+uploads/
+*.sqlite
+*.sqlite3
